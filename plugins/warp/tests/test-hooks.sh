@@ -125,19 +125,19 @@ export WARP_CLI_AGENT_PROTOCOL_VERSION=1
 PAYLOAD=$(build_payload '{"session_id":"s1","cwd":"/tmp"}' "stop")
 assert_json_field "v1 when warp declares 1" "$PAYLOAD" ".v" "1"
 
-# Warp declares a higher version than the plugin knows → capped to plugin max
+# Warp declares a higher version than the plugin knows → capped to plugin current
 export WARP_CLI_AGENT_PROTOCOL_VERSION=99
 PAYLOAD=$(build_payload '{"session_id":"s1","cwd":"/tmp"}' "stop")
-assert_json_field "capped to plugin max when warp is ahead" "$PAYLOAD" ".v" "1"
+assert_json_field "capped to plugin current when warp is ahead" "$PAYLOAD" ".v" "1"
 
 # Warp declares a lower version than the plugin knows → use warp's version
 # (not testable with PLUGIN_MAX=1 since there's no v0, but we verify the min logic
 # by temporarily overriding the variable)
-PLUGIN_MAX_PROTOCOL_VERSION=5
+PLUGIN_CURRENT_PROTOCOL_VERSION=5
 export WARP_CLI_AGENT_PROTOCOL_VERSION=3
 PAYLOAD=$(build_payload '{"session_id":"s1","cwd":"/tmp"}' "stop")
 assert_json_field "uses warp version when plugin is ahead" "$PAYLOAD" ".v" "3"
-PLUGIN_MAX_PROTOCOL_VERSION=1
+PLUGIN_CURRENT_PROTOCOL_VERSION=1
 
 # Clean up
 unset WARP_CLI_AGENT_PROTOCOL_VERSION
