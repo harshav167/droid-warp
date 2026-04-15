@@ -1,0 +1,67 @@
+name: Sync from upstream
+
+# Pull upstream warpdotdev/claude-code-warp changes daily, then re-apply
+# droid transformation. Commits to main only if something changed.
+
+on:
+  schedule:
+    # Daily at 06:00 UTC (01:00 ET)
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/warpdotdev/claude-code-warp.git || true
+          git fetch upstream main
+
+      - name: Merge upstream/main
+        id: merge
+        run: |
+          git checkout main
+          # Use ours strategy for the transformed files so our changes stick;
+          # everything else takes upstream. If conflict, fail loud.
+          if git merge --no-edit upstream/main; then
+            echo "merged=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::merge conflict from upstream — needs manual resolution"
+            exit 1
+          fi
+
+      - name: Apply droid transformation
+        run: python3 .github/scripts/apply-transform.py
+
+      - name: Commit transformation if needed
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git add -A
+            git commit -m "chore: re-apply droid transformation after upstream sync"
+          fi
+
+      - name: Push
+        run: |
+          if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
+            git push origin main
+          else
+            echo "nothing to push"
+          fi
